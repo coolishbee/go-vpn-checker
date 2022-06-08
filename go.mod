@@ -3,6 +3,7 @@ module go-vpn-checker
 go 1.18
 
 require (
+	github.com/djimenez/iconv-go v0.0.0-20160305225143-8960e66bd3da
 	github.com/go-vgo/robotgo v0.100.10
 	github.com/lxn/walk v0.0.0-20210112085537-c389da54e794
 	github.com/micmonay/keybd_event v1.1.1
