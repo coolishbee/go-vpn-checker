@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+	"syscall"
 	"time"
 
 	iconv "github.com/djimenez/iconv-go"
@@ -112,7 +113,9 @@ func pptpCheck(
 			onOff = false
 			return
 		default:
-			out, err := exec.Command("ipconfig", "/all").Output()
+			cmd := exec.Command("ipconfig", "/all")
+			cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+			out, err := cmd.Output()
 			if err != nil {
 				fmt.Println(err)
 				return
