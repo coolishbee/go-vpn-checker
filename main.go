@@ -159,7 +159,9 @@ func openVPNCheck(
 			logText.SetText("중지 되었습니다.")
 			return
 		default:
-			out, err := exec.Command("ipconfig", "/all").Output()
+			cmd := exec.Command("ipconfig", "/all")
+			cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+			out, err := cmd.Output()
 			if err != nil {
 				fmt.Println(err)
 				return
