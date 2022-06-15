@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os/exec"
+	"runtime"
 	"strings"
 	"syscall"
 	"time"
@@ -20,7 +21,6 @@ type sMainWindow struct {
 }
 
 var protocol = []string{"PPTP", "OpenVPN"}
-var onOff = false
 
 func main() {
 	kb, err := keybd_event.NewKeyBonding()
@@ -29,13 +29,11 @@ func main() {
 	}
 	kb.SetKeys(keybd_event.VK_ESC)
 
-	quit := make(chan bool)
-	//sendCh := make(chan bool)
-	//recvCh := make(chan bool)
+	quit := make(chan bool, 1)
 
 	mw := new(sMainWindow)
 	var outTE *walk.TextEdit
-	var protocolType *walk.ComboBox
+	var protocolCB *walk.ComboBox
 
 	MainWindow{
 		AssignTo: &mw.MainWindow,
@@ -43,10 +41,9 @@ func main() {
 		Size:     declarative.Size{Width: 120, Height: 240},
 		Layout:   VBox{},
 		Children: []Widget{
-
 			TextEdit{AssignTo: &outTE, ReadOnly: true},
 			ComboBox{
-				AssignTo: &protocolType,
+				AssignTo: &protocolCB,
 				Editable: false,
 				Model:    protocol,
 			},
@@ -55,15 +52,16 @@ func main() {
 				MinSize: Size{Width: 100, Height: 50},
 				Text:    "시작",
 				OnClicked: func() {
-					if !onOff {
-						onOff = true
-						if protocolType.CurrentIndex() == 0 {
+					if protocolCB.CurrentIndex() == -1 {
+						protocolCB.SetCurrentIndex(1)
+					}
+					//fmt.Println(runtime.NumGoroutine())
+					if runtime.NumGoroutine() < 3 {
+						if protocolCB.CurrentIndex() == 0 {
 							go pptpCheck(quit, quit, outTE, kb)
 						} else {
 							go openVPNCheck(quit, quit, outTE, "연결 끊김", kb)
 						}
-					} else {
-						outTE.SetText("이미 실행중입니다")
 					}
 				},
 			},
@@ -72,12 +70,11 @@ func main() {
 				MinSize: Size{Width: 100, Height: 50},
 				Text:    "중지",
 				OnClicked: func() {
-					if onOff {
-						onOff = false
-						quit <- true
-					} else {
-						outTE.SetText("이미 중지되었습니다")
-					}
+					go func(ch chan bool) {
+						if safeCheck(ch) {
+							quit <- true
+						}
+					}(quit)
 				},
 			},
 		},
@@ -100,6 +97,15 @@ func (mw *sMainWindow) showMessageError(msg string) {
 		walk.MsgBoxOK|walk.MsgBoxIconError)
 }
 
+func safeCheck(ch <-chan bool) bool {
+	select {
+	case <-ch:
+		return false
+	default:
+	}
+	return true
+}
+
 func pptpCheck(
 	recvCh <-chan bool,
 	sendCh chan<- bool,
@@ -110,7 +116,6 @@ func pptpCheck(
 		select {
 		case <-recvCh:
 			logText.SetText("중지 되었습니다.")
-			onOff = false
 			return
 		default:
 			cmd := exec.Command("ipconfig", "/all")
